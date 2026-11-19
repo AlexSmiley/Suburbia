@@ -1,4 +1,4 @@
-import type { Client, InStatement } from "@libsql/client";
+import type { Client } from "@libsql/client";
 import type { PostcodeRecord, RangeResult } from "../models/postcode";
 
 export type StateData = Record<string, PostcodeRecord[]>;
@@ -43,7 +43,7 @@ export class PostcodesRepository {
     }
 
     const records = [...recordsByPostcode.values()];
-    const statements: InStatement[] = [];
+    const statements: Array<{ sql: string; args: Array<string | number> }> = [];
 
     for (let offset = 0; offset < records.length; offset += INSERT_CHUNK_SIZE) {
       const chunk = records.slice(offset, offset + INSERT_CHUNK_SIZE);
@@ -68,15 +68,17 @@ export class PostcodesRepository {
   }
 
   async saveAll(records: PostcodeRecord[]): Promise<PostcodeRecord[]> {
+    const statements: Array<{ sql: string; args: Array<string | number> }> = [];
     for (let offset = 0; offset < records.length; offset += INSERT_CHUNK_SIZE) {
       const chunk = records.slice(offset, offset + INSERT_CHUNK_SIZE);
       const values = chunk.map(() => "(?, ?)").join(", ");
-      await this.db.execute({
+      statements.push({
         sql: `INSERT INTO postcodes (postcode, names_json) VALUES ${values}
           ON CONFLICT(postcode) DO UPDATE SET names_json = excluded.names_json`,
         args: chunk.flatMap((record) => [record.postcode, JSON.stringify(record.name)])
       });
     }
+    if (statements.length > 0) await this.db.batch(statements, "write");
     return this.getAll();
   }
 
