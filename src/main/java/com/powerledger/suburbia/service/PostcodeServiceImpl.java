@@ -105,7 +105,7 @@ public class PostcodeServiceImpl implements PostcodeService {
     }
 
     private static String format(int postcode) {
-        return String.format("%04d", postcode);
+        return String.format(Locale.ROOT, "%04d", postcode);
     }
 
 }
