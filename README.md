@@ -28,6 +28,18 @@ The Node.js API seeds its local SQLite database from the eight Australian state 
 
 By default, Vite proxies API calls to the Spring Boot API on port 8080. To use the Node.js API, start Vite with VITE_API_PROXY_TARGET=http://localhost:3001.
 
+Running the Node.js backend
+cd node-api
+npm install
+npm run dev
+
+
+It runs on http://localhost:3001.
+
+To connect the React frontend to it:
+cd frontend
+VITE_API_PROXY_TARGET=http://localhost:3001 npm run dev
+
 ## Run the original Java API
 
 Use the Maven wrapper or Maven installation from the repository root:
