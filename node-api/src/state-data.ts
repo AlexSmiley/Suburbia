@@ -1,45 +1,28 @@
-import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import act from "../data/states/ACT.json";
+import nsw from "../data/states/NSW.json";
+import nt from "../data/states/NT.json";
+import qld from "../data/states/QLD.json";
+import sa from "../data/states/SA.json";
+import tas from "../data/states/TAS.json";
+import vic from "../data/states/VIC.json";
+import wa from "../data/states/WA.json";
 import type { PostcodeRecord } from "./models/postcode";
 import type { StateData } from "./repositories/postcodes.repository";
 
-const STATES = ["ACT", "NSW", "NT", "QLD", "SA", "TAS", "VIC", "WA"] as const;
-
 /**
- * Load the bundled source dataset into process memory.
- *
- * Resolve relative to this module first (works for both src/server.ts and
- * dist/server.js), then fall back to the service working directory. This
- * avoids relying on Vercel's process.cwd() being the repository root.
+ * These static JSON imports are intentional: the production server bundle
+ * embeds every state dataset. The deployed function does not need to discover
+ * files on disk or rely on Vercel's runtime file-tracing rules.
  */
-export function loadStateData(directory?: string): StateData {
-  const candidates = directory
-    ? [directory]
-    : [
-        join(__dirname, "..", "data", "states"),
-        join(process.cwd(), "data", "states"),
-        join(process.cwd(), "node-api", "data", "states")
-      ];
-
-  const resolvedDirectory = candidates.find((candidate) =>
-    STATES.every((state) => existsSync(join(candidate, `${state}.json`)))
-  );
-
-  if (!resolvedDirectory) {
-    throw new Error(
-      `Unable to locate bundled postcode datasets. Checked: ${candidates.join(", ")}`
-    );
-  }
-
-  const data = {} as StateData;
-  for (const state of STATES) {
-    const file = join(resolvedDirectory, `${state}.json`);
-    const parsed: unknown = JSON.parse(readFileSync(file, "utf8"));
-    if (!Array.isArray(parsed)) {
-      throw new Error(`Invalid postcode dataset: ${file} must contain an array.`);
-    }
-    data[state] = parsed as PostcodeRecord[];
-  }
-
-  return data;
+export function loadStateData(): StateData {
+  return {
+    ACT: act as PostcodeRecord[],
+    NSW: nsw as PostcodeRecord[],
+    NT: nt as PostcodeRecord[],
+    QLD: qld as PostcodeRecord[],
+    SA: sa as PostcodeRecord[],
+    TAS: tas as PostcodeRecord[],
+    VIC: vic as PostcodeRecord[],
+    WA: wa as PostcodeRecord[]
+  };
 }
