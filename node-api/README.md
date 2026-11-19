@@ -1,65 +1,64 @@
-# Suburbia Node.js application
+# Suburbia Node.js API
 
-A full-stack Suburbia application: the Express API serves the compiled React + TypeScript frontend from the same origin. The original Spring Boot backend and the standalone frontend workspace remain in the repository.
+The Node.js service is a TypeScript/Express API. The React application is built and deployed independently by Vercel as the `frontend` service.
 
 ## Requirements
 
 - Node.js 20+
 - npm
 
-## Build and run the complete application
+## Local development
 
 From this directory:
 
-    npm install
-    npm run build
-    npm start
+```bash
+npm install
+npm run dev
+```
 
-Open http://localhost:3001. The build command installs the frontend workspace dependencies, builds the React application into node-api/public/, and compiles the TypeScript API. Express then serves the frontend and API together.
+The API listens on http://localhost:3001. In another terminal, run the frontend:
 
-For a development run that rebuilds the frontend before starting the Node server:
+```bash
+cd frontend
+npm install
+npm run dev
+```
 
-    npm run dev
+Vite proxies API requests to http://localhost:3001 by default. Set `VITE_API_PROXY_TARGET` to override the local API URL.
 
-For frontend hot-module-reload during UI development, run the API and Vite in separate terminals:
+To run the production TypeScript build locally:
 
-Terminal 1:
+```bash
+npm run build
+npm start
+```
 
-    npm run dev:api
+## Hosted database (Turso)
 
-Terminal 2:
+The API uses the libSQL client. In local development it defaults to a SQLite file at `./storage/suburbia.sqlite`. In Vercel it requires a hosted Turso database; it intentionally refuses to fall back to the ephemeral function filesystem.
 
-    npm run dev:frontend
+Create a Turso database and generate an authentication token, then configure these environment variables for the Vercel project (Production, Preview, and Development as appropriate):
 
-Open http://localhost:5173. Vite proxies API requests to http://localhost:3001 by default. Set VITE_API_PROXY_TARGET to override that target.
+- `TURSO_DATABASE_URL`: the database URL, for example `libsql://your-database-your-org.turso.io`
+- `TURSO_AUTH_TOKEN`: the database authentication token
 
-## Configuration
+Do not commit either value. The API creates its schema and seeds an empty database from the bundled ACT, NSW, NT, QLD, SA, TAS, VIC, and WA datasets on its first request. Subsequent instances reuse the persistent hosted database.
 
-- PORT: HTTP port (default: 3001)
-- DATABASE_PATH: SQLite database file (default: ./storage/suburbia.sqlite)
-
-The API seeds its SQLite database on first startup from the bundled ACT, NSW, NT, QLD, SA, TAS, VIC, and WA datasets under data/states/. The storage/ directory is intentionally ignored by Git.
+For local testing against Turso, set the same two environment variables before starting the API. When they are absent outside Vercel, the local SQLite file is used.
 
 ## API
 
-- GET /: serves the React web application.
-- GET /health: returns a small service health response.
-- POST /postcodes: accepts an array of records with a four-digit postcode and a non-empty name list; upserts the records and returns the full stored collection.
-- GET /:state: returns only records belonging to the requested bundled state or territory, sorted by postcode. State matching is case-insensitive; an unknown state returns 404.
-- GET /:first/:second: clamps bounds to 0000–9999, returns no results for an inverted range, deduplicates and sorts suburb names, and excludes spaces when calculating total chars.
+- `GET /health`: health response.
+- `POST /postcodes`: accepts an array of records with a four-digit postcode and a non-empty name list; upserts the records and returns the full stored collection.
+- `GET /:state`: returns records for ACT, NSW, NT, QLD, SA, TAS, VIC, or WA, sorted by postcode.
+- `GET /:first/:second`: returns deduplicated and sorted suburb names within the postcode range and the count of characters excluding spaces.
 
-The range JSON response retains the Spring API field names: suburb names: and total chars.
+The range response retains the original field names: `suburb names:` and `total chars`.
 
 ## Tests
 
-    npm test
+```bash
+npm test
+```
 
-The API tests use an in-memory SQLite database and do not need a running server.
-
-## Run alongside the other applications
-
-- Spring Boot API: http://localhost:8080
-- Full-stack Node.js application (frontend + API): http://localhost:3001
-- Standalone Vite development frontend: http://localhost:5173
-
-The standalone frontend uses the same React source and can be configured to proxy requests to the Node API.
+Tests use an in-memory libSQL database and do not require a hosted Turso account.

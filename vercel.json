@@ -1,0 +1,52 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "services": {
+    "frontend": {
+      "root": "frontend",
+      "framework": "vite"
+    },
+    "node-api": {
+      "root": "node-api",
+      "framework": "express",
+      "entrypoint": "src/server.ts",
+      "buildCommand": "npm run build",
+      "functions": {
+        "src/server.ts": {
+          "includeFiles": "data/states/**/*.json"
+        }
+      }
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/health",
+      "destination": {
+        "service": "node-api"
+      }
+    },
+    {
+      "source": "/postcodes",
+      "destination": {
+        "service": "node-api"
+      }
+    },
+    {
+      "source": "/:state(ACT|NSW|NT|QLD|SA|TAS|VIC|WA)",
+      "destination": {
+        "service": "node-api"
+      }
+    },
+    {
+      "source": "/:first(\\d{1,10})/:second(\\d{1,10})",
+      "destination": {
+        "service": "node-api"
+      }
+    },
+    {
+      "source": "/(.*)",
+      "destination": {
+        "service": "frontend"
+      }
+    }
+  ]
+}

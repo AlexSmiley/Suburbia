@@ -11,13 +11,10 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
+      "/health": backend,
       "/postcodes": backend,
       "^/(ACT|NSW|NT|QLD|SA|TAS|VIC|WA)$": backend,
       "^/\\d{1,10}/\\d{1,10}$": backend
     }
-  },
-  build: {
-    outDir: "../node-api/public",
-    emptyOutDir: true
   }
 });

@@ -7,40 +7,49 @@ Suburbia is an Australian postcode and suburb application with two backend imple
 | Folder | Technology | Default URL |
 | --- | --- | --- |
 | Repository root (src/) | Original Spring Boot / Java API | http://localhost:8080 |
-| node-api/ | Full-stack Node.js + Express + SQLite + React application | http://localhost:3001 |
-| frontend/ | Standalone React + TypeScript + Vite workspace | http://localhost:5173 |
+| node-api/ | TypeScript / Express API with libSQL (local SQLite or hosted Turso) | http://localhost:3001 |
+| frontend/ | React + TypeScript + Vite | http://localhost:5173 |
 
-The original Spring Boot implementation remains intact. The Node.js application builds and serves the same React frontend from Express, so its UI and API are available from one origin.
+The original Spring Boot implementation remains intact. The React frontend and Node.js API are deployed as independent Vercel Services under one project and one domain.
 
-## Run the complete Node.js application
+## Deploy to Vercel
 
-    cd node-api
-    npm install
-    npm run build
-    npm start
+The root `vercel.json` defines two services:
 
-Open http://localhost:3001.
+- `frontend`: Vite application, public at `/` and all non-API paths.
+- `node-api`: Express API, exposed only through `/health`, `/postcodes`, supported state paths, and numeric postcode-range paths.
 
-For development with frontend hot reload, start the API with npm run dev:api from node-api, then start the Vite app with npm run dev:frontend in another terminal. Open http://localhost:5173.
+In Vercel Project Settings, set the Framework Preset to **Services**. Connect the repository root (do not set either subdirectory as the project root), then add these environment variables to the Vercel project:
 
-Running the Node.js backend
+- `TURSO_DATABASE_URL`
+- `TURSO_AUTH_TOKEN`
+
+Create a Turso database and token before deploying. The Node API fails fast in Vercel if these values are missing rather than silently writing to ephemeral storage. The API initializes its schema and seeds an empty hosted database from the bundled state JSON datasets.
+
+There are no inter-service bindings: the browser calls the public API paths on the shared Vercel origin, and top-level rewrites route those paths to the Node API service.
+
+Run `vercel dev` from the repository root to develop both services together.
+
+## Run locally without Vercel
+
+Start the Node API:
+
+```bash
 cd node-api
 npm install
 npm run dev
+```
 
+Start the frontend in a second terminal:
 
-It runs on http://localhost:3001.
-
-To connect the React frontend to it:
+```bash
 cd frontend
-VITE_API_PROXY_TARGET=http://localhost:3001 npm run dev
+npm install
+npm run dev
+```
 
-## Run the original Java API
+The Vite development server proxies API requests to `http://localhost:3001`. To run the original Java API instead, use the Maven wrapper or Maven installation from the repository root:
 
-Use the Maven wrapper or Maven installation from the repository root:
-
-    mvn spring-boot:run
-
-The Spring Boot backend and full-stack Node.js application can be run independently.
-
-Link: https://suburbia-murex.vercel.app/
+```bash
+./mvnw spring-boot:run
+```

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 import request from "supertest";
-import Database from "better-sqlite3";
+import { createClient, type Client } from "@libsql/client";
 import { createApp } from "../src/app";
 import type { StateData } from "../src/repositories/postcodes.repository";
 
@@ -13,25 +13,24 @@ const fixtures: StateData = {
 };
 
 describe("Suburbia Node API", () => {
-  let db: Database.Database;
-  let app: ReturnType<typeof createApp>;
+  let db: Client;
 
   afterEach(() => db?.close());
 
   const setup = () => {
-    db = new Database(":memory:");
-    app = createApp(db, fixtures);
+    db = createClient({ url: ":memory:" });
+    return createApp(db, fixtures);
   };
 
   it("seeds the bundled state data and returns it by state", async () => {
-    setup();
+    const app = setup();
     const response = await request(app).get("/NSW");
     expect(response.status).toBe(200);
     expect(response.body.map((item: { postcode: string }) => item.postcode)).toEqual(["2000", "2001"]);
   });
 
   it("upserts records and returns the full stored collection", async () => {
-    setup();
+    const app = setup();
     const response = await request(app).post("/postcodes").send([
       { postcode: "2000", name: ["Sydney CBD"] },
       { postcode: "4000", name: ["Brisbane"] }
@@ -42,7 +41,7 @@ describe("Suburbia Node API", () => {
   });
 
   it("deduplicates and sorts suburb names and excludes spaces from the character total", async () => {
-    setup();
+    const app = setup();
     const response = await request(app).get("/2000/2001");
     expect(response.status).toBe(200);
     expect(response.body["suburb names:"]).toEqual(["Barangaroo", "Sydney", "The Rocks"]);
@@ -50,7 +49,7 @@ describe("Suburbia Node API", () => {
   });
 
   it("does not reverse an inverted range", async () => {
-    setup();
+    const app = setup();
     const response = await request(app).get("/2001/2000");
     expect(response.status).toBe(200);
     expect(response.body["suburb names:"]).toEqual([]);
@@ -58,13 +57,13 @@ describe("Suburbia Node API", () => {
   });
 
   it("returns 404 for an unknown state", async () => {
-    setup();
+    const app = setup();
     const response = await request(app).get("/XX");
     expect(response.status).toBe(404);
   });
 
   it("rejects malformed postcode records", async () => {
-    setup();
+    const app = setup();
     const response = await request(app).post("/postcodes").send([
       { postcode: "20", name: ["Sydney"] }
     ]);
