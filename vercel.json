@@ -7,9 +7,8 @@
     },
     "node-api": {
       "root": "node-api",
-      "framework": "express",
-      "entrypoint": "dist/server.js",
-      "buildCommand": "npm run build"
+      "runtime": "container",
+      "entrypoint": "Dockerfile"
     }
   },
   "rewrites": [
@@ -32,7 +31,7 @@
       }
     },
     {
-      "source": "/:first(\\d{1,10})/:second(\\d{1,10})",
+      "source": "/:first(\\\\d{1,10})/:second(\\\\d{1,10})",
       "destination": {
         "service": "node-api"
       }
