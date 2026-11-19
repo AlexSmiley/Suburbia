@@ -1,6 +1,6 @@
 # Suburbia Node.js API
 
-A standalone TypeScript + Express implementation of the Suburbia REST API. It lives alongside the original Spring Boot application and the React frontend; it does not replace or modify either one.
+A standalone TypeScript + Express implementation of the existing Suburbia REST API. It lives alongside the original Spring Boot application and React frontend; it does not replace or modify either one.
 
 ## Requirements
 
@@ -18,19 +18,19 @@ The API listens on http://localhost:3001 by default. Build and run the productio
 ## Configuration
 
 - PORT: HTTP port (default: 3001)
-- DATABASE_PATH: SQLite database file (default: ./data/suburbia.sqlite)
+- DATABASE_PATH: SQLite database file (default: ./storage/suburbia.sqlite)
 
-The database is created automatically on first startup. The data/ directory is intentionally ignored by Git.
+The API seeds its SQLite database on first startup from the bundled ACT, NSW, NT, QLD, SA, TAS, VIC, and WA datasets under data/states/. The storage/ directory is intentionally ignored by Git.
 
-## API
+## API compatibility
 
-The routes retain the Spring API's request and response shapes:
+The routes preserve the existing Spring API's request and response behavior:
 
-- POST /postcodes: accepts an array of { "postcode": "2000", "name": ["Sydney"] } records and upserts them.
-- GET /:state: returns records for an Australian state or territory code (ACT, NSW, NT, QLD, SA, TAS, VIC, WA).
-- GET /:first/:second: returns { "suburb names:": [...], "total chars": 123 }, with suburb names sorted alphabetically and the character total calculated across the returned names.
+- POST /postcodes: accepts an array of records with a four-digit postcode and a non-empty name list; upserts the records and returns the full stored collection.
+- GET /:state: returns only records belonging to the requested bundled state or territory, sorted by postcode. State matching is case-insensitive; an unknown state returns 404.
+- GET /:first/:second: clamps the range to 0000–9999, returns no results for an inverted range, deduplicates and sorts suburb names, and excludes spaces when calculating total chars.
 
-Range boundaries are inclusive. The implementation uses SQLite for persistent local storage.
+The JSON response for a range has the same fields as the Spring implementation: suburb names: and total chars.
 
 ## Tests
 
@@ -45,4 +45,4 @@ The API tests use an in-memory SQLite database and do not need a running server.
 - Node.js API: http://localhost:3001
 - React frontend: http://localhost:5173
 
-The frontend's Vite proxy currently defaults to the Spring Boot API on port 8080. To use the Node.js implementation, change its proxy target to port 3001, or configure the frontend API base URL for your deployment.
+The Vite proxy defaults to the Spring API. Set VITE_API_PROXY_TARGET=http://localhost:3001 when starting Vite to proxy requests to this Node API instead.
