@@ -1,0 +1,121 @@
+name: Suburbia CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  api-tests:
+    name: API tests and end-to-end smoke tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: node-api
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: node-api/package.json
+      - name: Install API dependencies
+        run: npm install --no-audit --no-fund
+      - name: Run API integration tests
+        run: npm test
+      - name: Compile API
+        run: npm run build
+      - name: Start API
+        run: |
+          npm start > /tmp/suburbia-api.log 2>&1 &
+          echo $! > /tmp/suburbia-api.pid
+      - name: Exercise live API endpoints
+        run: |
+          node <<'NODE'
+          const assert = require('node:assert/strict');
+
+          async function main() {
+            const base = 'http://127.0.0.1:3001';
+            let ready = false;
+            for (let attempt = 0; attempt < 30; attempt++) {
+              try {
+                const response = await fetch(base + '/health');
+                if (response.ok) { ready = true; break; }
+              } catch {}
+              await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+            assert.equal(ready, true, 'API did not become healthy within 30 seconds');
+
+            const health = await (await fetch(base + '/health')).json();
+            assert.equal(health.status, 'ok');
+            assert.equal(health.storage, 'in-memory');
+
+            const stateResponse = await fetch(base + '/NSW');
+            assert.equal(stateResponse.status, 200);
+            const stateRecords = await stateResponse.json();
+            assert.ok(Array.isArray(stateRecords) && stateRecords.length > 0, 'NSW data should be loaded');
+
+            const rangeResponse = await fetch(base + '/2000/2010');
+            assert.equal(rangeResponse.status, 200);
+            const range = await rangeResponse.json();
+            assert.ok(Array.isArray(range['suburb names:']));
+            assert.equal(typeof range['total chars'], 'number');
+
+            const invalidState = await fetch(base + '/XX');
+            assert.equal(invalidState.status, 404);
+
+            const invalidPost = await fetch(base + '/postcodes', {
+              method: 'POST',
+              headers: { 'content-type': 'application/json' },
+              body: JSON.stringify([{ postcode: '20', name: ['Invalid'] }])
+            });
+            assert.equal(invalidPost.status, 400);
+
+            const saved = await fetch(base + '/postcodes', {
+              method: 'POST',
+              headers: { 'content-type': 'application/json' },
+              body: JSON.stringify([{ postcode: '9999', name: ['CI Test Suburb'] }])
+            });
+            assert.equal(saved.status, 200);
+            const savedRecords = await saved.json();
+            assert.ok(savedRecords.some(record => record.postcode === '9999' && record.name.includes('CI Test Suburb')));
+
+            const savedRange = await fetch(base + '/9999/9999');
+            assert.equal(savedRange.status, 200);
+            const savedRangeBody = await savedRange.json();
+            assert.ok(savedRangeBody['suburb names:'].includes('CI Test Suburb'));
+
+            console.log('E2E smoke tests passed: health, NSW seed data, postcode range, validation, POST, and read-after-write.');
+          }
+
+          main().catch(error => { console.error(error); process.exitCode = 1; });
+          NODE
+      - name: Show API logs on failure
+        if: failure()
+        run: cat /tmp/suburbia-api.log || true
+      - name: Stop API
+        if: always()
+        run: |
+          if [ -f /tmp/suburbia-api.pid ]; then kill "$(cat /tmp/suburbia-api.pid)" || true; fi
+
+  frontend-build:
+    name: Frontend typecheck and production build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package.json
+      - name: Install frontend dependencies
+        run: npm install --no-audit --no-fund
+      - name: Build frontend
+        run: npm run build
