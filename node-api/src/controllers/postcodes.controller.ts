@@ -4,7 +4,7 @@ import type { PostcodesService } from "../services/postcodes.service";
 
 const postcodeSchema = z.object({
   postcode: z.string().regex(/^\d{4}$/, "postcode must contain exactly four digits"),
-  name: z.array(z.string().trim().min(1)).min(1)
+  name: z.array(z.string().refine((value) => value.trim().length > 0)).min(1)
 });
 
 const stateSchema = z.enum(["ACT", "NSW", "NT", "QLD", "SA", "TAS", "VIC", "WA"]);
@@ -23,25 +23,23 @@ export function createPostcodesRouter(service: PostcodesService): Router {
 
   router.get("/:first/:second", (req, res, next) => {
     try {
-      const first = Number(req.params.first);
-      const second = Number(req.params.second);
-      if (!/^\d{4}$/.test(req.params.first) || !/^\d{4}$/.test(req.params.second)) {
-        return res.status(400).json({ error: "Both range boundaries must be four-digit postcodes." });
+      if (!/^\d{1,10}$/.test(req.params.first) || !/^\d{1,10}$/.test(req.params.second)) {
+        return res.status(400).json({ error: "Range boundaries must be numeric postcodes." });
       }
-      res.json(service.byRange(first, second));
+      res.json(service.byRange(Number(req.params.first), Number(req.params.second)));
     } catch (error) {
       next(error);
     }
   });
 
   router.get("/:state", (req, res, next) => {
+    const parsed = stateSchema.safeParse(req.params.state.toUpperCase());
+    if (!parsed.success) {
+      return res.status(404).json({ error: `Unknown state: ${req.params.state}` });
+    }
     try {
-      const state = stateSchema.parse(req.params.state.toUpperCase());
-      res.json(service.byState(state));
+      res.json(service.byState(parsed.data));
     } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ error: "Unsupported Australian state or territory code." });
-      }
       next(error);
     }
   });
