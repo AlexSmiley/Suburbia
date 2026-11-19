@@ -1,8 +1,7 @@
 import { createApp } from "./app";
-import { openDatabase } from "./database";
 import { loadStateData } from "./state-data";
 
-const app = createApp(openDatabase(), loadStateData());
+const app = createApp(loadStateData());
 
 export default app;
 
