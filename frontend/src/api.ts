@@ -32,7 +32,7 @@ export const suburbiaApi = {
     return request<PostcodeRecord[]>(`/${encodeURIComponent(state)}`);
   },
   byPostcodeRange(from: string, to: string) {
-    return request<string>(`/${encodeURIComponent(from)}/${encodeURIComponent(to)}`);
+    return request<unknown>(`/${encodeURIComponent(from)}/${encodeURIComponent(to)}`);
   },
   save(records: PostcodeRecord[]) {
     return request<PostcodeRecord[]>("/postcodes", {
@@ -42,8 +42,8 @@ export const suburbiaApi = {
   }
 };
 
-export function parseRangeResult(raw: string): RangeResult {
-  const parsed = JSON.parse(raw) as Record<string, unknown>;
+export function parseRangeResult(raw: unknown): RangeResult {
+  const parsed = (typeof raw === "string" ? JSON.parse(raw) : raw) as Record<string, unknown>;
   const suburbsValue = parsed["suburb names:"] ?? parsed["suburb names"] ?? [];
   const suburbs = Array.isArray(suburbsValue)
     ? suburbsValue.map(String)
