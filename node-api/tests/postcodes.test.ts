@@ -37,7 +37,7 @@ describe("Suburbia Node API", () => {
       { postcode: "4000", name: ["Brisbane"] }
     ]);
     expect(response.status).toBe(200);
-    expect(response.body).toHaveLength(3);
+    expect(response.body).toHaveLength(4);
     expect(response.body.find((item: { postcode: string }) => item.postcode === "2000").name).toEqual(["Sydney CBD"]);
   });
 
