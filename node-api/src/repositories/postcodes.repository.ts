@@ -27,7 +27,7 @@ export class PostcodesRepository {
 
   private seed(stateData: StateData): void {
     const insertPostcode = this.db.prepare(
-      "INSERT OR REPLACE INTO postcodes (postcode, names_json) VALUES (?, ?)"
+      "INSERT INTO postcodes (postcode, names_json) VALUES (?, ?) ON CONFLICT(postcode) DO UPDATE SET names_json = excluded.names_json"
     );
     const insertMembership = this.db.prepare(
       "INSERT OR IGNORE INTO state_postcodes (state, postcode) VALUES (?, ?)"
