@@ -18,7 +18,7 @@ describe("Suburbia Node API with in-memory storage", () => {
     expect(Object.keys(data).sort()).toEqual(["ACT", "NSW", "NT", "QLD", "SA", "TAS", "VIC", "WA"]);
     for (const records of Object.values(data)) {
       expect(records.length).toBeGreaterThan(0);
-      expect(records.every((record) => /^\\d{4}$/.test(record.postcode))).toBe(true);
+      expect(records.every((record) => /^\d{4}$/.test(record.postcode))).toBe(true);
     }
   });
 
