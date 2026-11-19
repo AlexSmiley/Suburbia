@@ -12,7 +12,7 @@
       "buildCommand": "npm run build",
       "functions": {
         "src/server.ts": {
-          "includeFiles": "data/states/**/*.json"
+          "includeFiles": "**/*.json"
         }
       }
     }
