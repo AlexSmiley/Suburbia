@@ -31,7 +31,7 @@
       }
     },
     {
-      "source": "/:first(\\\\d{1,10})/:second(\\\\d{1,10})",
+      "source": "/:first([0-9]{1,10})/:second([0-9]{1,10})",
       "destination": {
         "service": "node-api"
       }
