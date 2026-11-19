@@ -1,32 +1,27 @@
 # Suburbia
 
-Suburbia is an Australian postcode and suburb API with multiple backend implementations and a shared web frontend.
+Suburbia is an Australian postcode and suburb application with two backend implementations and a shared React web frontend.
 
 ## Projects
 
 | Folder | Technology | Default URL |
 | --- | --- | --- |
 | Repository root (src/) | Original Spring Boot / Java API | http://localhost:8080 |
-| node-api/ | TypeScript, Express, SQLite API | http://localhost:3001 |
-| frontend/ | React + TypeScript + Vite | http://localhost:5173 |
+| node-api/ | Full-stack Node.js + Express + SQLite + React application | http://localhost:3001 |
+| frontend/ | Standalone React + TypeScript + Vite workspace | http://localhost:5173 |
 
-The Java and Node.js backends are independent implementations. Both remain in the repository.
+The original Spring Boot implementation remains intact. The Node.js application builds and serves the same React frontend from Express, so its UI and API are available from one origin.
 
-## Run the Node.js API
+## Run the complete Node.js application
 
     cd node-api
     npm install
-    npm run dev
+    npm run build
+    npm start
 
-The Node.js API seeds its local SQLite database from the eight Australian state and territory datasets bundled in node-api/data/states/. See node-api/README.md for configuration, endpoints, and tests.
+Open http://localhost:3001.
 
-## Run the React frontend
-
-    cd frontend
-    npm install
-    npm run dev
-
-By default, Vite proxies API calls to the Spring Boot API on port 8080. To use the Node.js API, start Vite with VITE_API_PROXY_TARGET=http://localhost:3001.
+For development with frontend hot reload, start the API with npm run dev:api from node-api, then start the Vite app with npm run dev:frontend in another terminal. Open http://localhost:5173.
 
 Running the Node.js backend
 cd node-api
@@ -46,4 +41,4 @@ Use the Maven wrapper or Maven installation from the repository root:
 
     mvn spring-boot:run
 
-The original Java application remains available alongside the Node.js backend.
+The Spring Boot backend and full-stack Node.js application can be run independently.
