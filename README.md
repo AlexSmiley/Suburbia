@@ -50,3 +50,4 @@ The Vite development server proxies API requests to `http://localhost:3001`. To 
 ```bash
 ./mvnw spring-boot:run
 ```
+Link: https://suburbia-eta.vercel.app/
