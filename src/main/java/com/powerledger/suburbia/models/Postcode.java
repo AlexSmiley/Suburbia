@@ -13,19 +13,19 @@ import java.util.ArrayList;
 @Table
 public class Postcode implements Serializable {
 
-    @Column(name="postcode")
+    @Column(name="postcode", length=4)
     @Id
-    private int postcode;
+    private String postcode;
 
     @Column(name="name", columnDefinition="TEXT")
     private ArrayList<String> name;
 
     @JsonProperty("postcode")
-    public int getPostcode() {
+    public String getPostcode() {
         return postcode;
     }
 
-    public void setPostcode(int postcode) {
+    public void setPostcode(String postcode) {
         this.postcode = postcode;
     }
 
