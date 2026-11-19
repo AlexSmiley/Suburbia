@@ -1,13 +1,13 @@
 import express, { type ErrorRequestHandler } from "express";
 import cors from "cors";
 import type Database from "better-sqlite3";
-import { PostcodesRepository } from "./repositories/postcodes.repository";
+import { PostcodesRepository, type StateData } from "./repositories/postcodes.repository";
 import { PostcodesService } from "./services/postcodes.service";
 import { createPostcodesRouter } from "./controllers/postcodes.controller";
 
-export function createApp(database: Database.Database) {
+export function createApp(database: Database.Database, stateData: StateData) {
   const app = express();
-  const repository = new PostcodesRepository(database);
+  const repository = new PostcodesRepository(database, stateData);
   const service = new PostcodesService(repository);
 
   app.use(cors());
