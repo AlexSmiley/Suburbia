@@ -8,13 +8,8 @@
     "node-api": {
       "root": "node-api",
       "framework": "express",
-      "entrypoint": "src/server.ts",
-      "buildCommand": "npm run build",
-      "functions": {
-        "src/server.ts": {
-          "includeFiles": "**/*.json"
-        }
-      }
+      "entrypoint": "dist/server.js",
+      "buildCommand": "npm run build"
     }
   },
   "rewrites": [
