@@ -1,25 +1,46 @@
 import Database from "better-sqlite3";
 import type { PostcodeRecord, RangeResult } from "../models/postcode";
 
-const STATE_RANGES: Record<string, Array<[number, number]>> = {
-  ACT: [[200, 299], [2600, 2618], [2900, 2920]],
-  NSW: [[1000, 2599], [2619, 2899], [2921, 2999]],
-  NT: [[800, 999]],
-  QLD: [[4000, 4999], [9000, 9999]],
-  SA: [[5000, 5999]],
-  TAS: [[7000, 7999]],
-  VIC: [[3000, 3999], [8000, 8999]],
-  WA: [[6000, 6999]]
-};
+export type StateData = Record<string, PostcodeRecord[]>;
 
 export class PostcodesRepository {
-  constructor(private readonly db: Database.Database) {
+  constructor(
+    private readonly db: Database.Database,
+    stateData: StateData
+  ) {
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS postcodes (
         postcode TEXT PRIMARY KEY,
         names_json TEXT NOT NULL
-      )
+      );
+      CREATE TABLE IF NOT EXISTS state_postcodes (
+        state TEXT NOT NULL,
+        postcode TEXT NOT NULL,
+        PRIMARY KEY (state, postcode),
+        FOREIGN KEY (postcode) REFERENCES postcodes(postcode)
+      );
     `);
+
+    const count = (this.db.prepare("SELECT COUNT(*) AS count FROM postcodes").get() as { count: number }).count;
+    if (count === 0) this.seed(stateData);
+  }
+
+  private seed(stateData: StateData): void {
+    const insertPostcode = this.db.prepare(
+      "INSERT OR REPLACE INTO postcodes (postcode, names_json) VALUES (?, ?)"
+    );
+    const insertMembership = this.db.prepare(
+      "INSERT OR IGNORE INTO state_postcodes (state, postcode) VALUES (?, ?)"
+    );
+    const seedTransaction = this.db.transaction((data: StateData) => {
+      for (const [state, records] of Object.entries(data)) {
+        for (const record of records) {
+          insertPostcode.run(record.postcode, JSON.stringify(record.name));
+          insertMembership.run(state, record.postcode);
+        }
+      }
+    });
+    seedTransaction(stateData);
   }
 
   saveAll(records: PostcodeRecord[]): PostcodeRecord[] {
@@ -43,24 +64,31 @@ export class PostcodesRepository {
   }
 
   getByState(state: string): PostcodeRecord[] {
-    const ranges = STATE_RANGES[state.toUpperCase()];
-    if (!ranges) return [];
-    return this.getAll().filter(({ postcode }) => {
-      const value = Number(postcode);
-      return ranges.some(([start, end]) => value >= start && value <= end);
-    });
+    return this.db.prepare(`
+      SELECT p.postcode, p.names_json
+      FROM postcodes p
+      INNER JOIN state_postcodes s ON s.postcode = p.postcode
+      WHERE s.state = ?
+      ORDER BY p.postcode
+    `).all(state).map((row: any) => ({
+      postcode: row.postcode,
+      name: JSON.parse(row.names_json) as string[]
+    }));
   }
 
   getByRange(from: number, to: number): RangeResult {
-    const low = Math.min(from, to);
-    const high = Math.max(from, to);
-    const suburbs = this.db.prepare(
-      "SELECT names_json FROM postcodes WHERE CAST(postcode AS INTEGER) BETWEEN ? AND ?"
-    ).all(low, high).flatMap((row: any) => JSON.parse(row.names_json) as string[]);
-    suburbs.sort((a, b) => a.localeCompare(b));
+    const start = Math.max(from, 0);
+    const end = Math.min(to, 9999);
+    const suburbs = start <= end
+      ? this.db.prepare(
+          "SELECT names_json FROM postcodes WHERE CAST(postcode AS INTEGER) BETWEEN ? AND ?"
+        ).all(start, end).flatMap((row: any) => JSON.parse(row.names_json) as string[])
+      : [];
+
+    const uniqueSorted = [...new Set(suburbs)].sort();
     return {
-      "suburb names:": suburbs,
-      "total chars": suburbs.reduce((total, name) => total + name.length, 0)
+      "suburb names:": uniqueSorted,
+      "total chars": uniqueSorted.reduce((total, name) => total + name.replace(/ /g, "").length, 0)
     };
   }
 }
