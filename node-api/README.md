@@ -19,7 +19,7 @@ npm run dev
 The API listens on http://localhost:3001. In another terminal, run the frontend:
 
 ```bash
-cd frontend
+cd ../frontend
 npm install
 npm run dev
 ```
