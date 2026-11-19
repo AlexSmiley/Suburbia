@@ -2,11 +2,14 @@
   "name": "suburbia-node-api",
   "version": "1.0.0",
   "private": true,
-  "description": "TypeScript/Express implementation of the Suburbia postcode API",
+  "description": "Full-stack Suburbia application: React frontend and TypeScript/Express API",
   "main": "dist/server.js",
   "scripts": {
-    "dev": "tsx watch src/server.ts",
-    "build": "tsc -p tsconfig.json",
+    "dev": "npm run build:frontend && tsx watch src/server.ts",
+    "dev:api": "tsx watch src/server.ts",
+    "dev:frontend": "npm --prefix ../frontend run dev",
+    "build:frontend": "npm --prefix ../frontend install --include=dev --no-audit --no-fund && npm --prefix ../frontend run build",
+    "build": "npm run build:frontend && tsc -p tsconfig.json",
     "start": "node dist/server.js",
     "test": "vitest run",
     "test:watch": "vitest"
