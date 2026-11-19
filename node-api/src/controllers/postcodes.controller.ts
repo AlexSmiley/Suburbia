@@ -3,7 +3,7 @@ import { z } from "zod";
 import type { PostcodesService } from "../services/postcodes.service";
 
 const postcodeSchema = z.object({
-  postcode: z.string().regex(/^\\d{4}$/, "postcode must contain exactly four digits"),
+  postcode: z.string().regex(/^\d{4}$/, "postcode must contain exactly four digits"),
   name: z.array(z.string().refine((value) => value.trim().length > 0)).min(1)
 });
 
@@ -23,7 +23,7 @@ export function createPostcodesRouter(service: PostcodesService): Router {
 
   router.get("/:first/:second", async (req, res, next) => {
     try {
-      if (!/^\\d{1,10}$/.test(req.params.first) || !/^\\d{1,10}$/.test(req.params.second)) {
+      if (!/^\d{1,10}$/.test(req.params.first) || !/^\d{1,10}$/.test(req.params.second)) {
         return res.status(400).json({ error: "Range boundaries must be numeric postcodes." });
       }
       res.json(await service.byRange(Number(req.params.first), Number(req.params.second)));
