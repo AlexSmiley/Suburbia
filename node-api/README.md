@@ -7,6 +7,12 @@ The Node.js service is a TypeScript/Express API. The React application is built 
 - Node.js 20+
 - npm
 
+## Storage model
+
+The API uses a process-local in-memory store. On startup, it loads the bundled ACT, NSW, NT, QLD, SA, TAS, VIC, and WA postcode JSON files into memory. No database service, connection string, token, or database setup is required.
+
+**Important:** memory belongs to one running Node.js process. Vercel serverless instances do not share memory, and instances can be restarted or scaled down at any time. Changes submitted through `POST /postcodes` are temporary and may be lost when an instance is recycled. This design is suitable for read-only access to the bundled dataset and temporary writes, but not durable user data or consistent writes across multiple instances.
+
 ## Local development
 
 From this directory:
@@ -33,23 +39,10 @@ npm run build
 npm start
 ```
 
-## Hosted database (Turso)
-
-The API uses the libSQL client. In local development it defaults to a SQLite file at `./storage/suburbia.sqlite`. In Vercel it requires a hosted Turso database; it intentionally refuses to fall back to the ephemeral function filesystem.
-
-Create a Turso database and generate an authentication token, then configure these environment variables for the Vercel project (Production, Preview, and Development as appropriate):
-
-- `TURSO_DATABASE_URL`: the database URL, for example `libsql://your-database-your-org.turso.io`
-- `TURSO_AUTH_TOKEN`: the database authentication token
-
-Do not commit either value. The API creates its schema and seeds an empty database from the bundled ACT, NSW, NT, QLD, SA, TAS, VIC, and WA datasets on its first request. Subsequent instances reuse the persistent hosted database.
-
-For local testing against Turso, set the same two environment variables before starting the API. When they are absent outside Vercel, the local SQLite file is used.
-
 ## API
 
-- `GET /health`: health response.
-- `POST /postcodes`: accepts an array of records with a four-digit postcode and a non-empty name list; upserts the records and returns the full stored collection.
+- `GET /health`: health response, including `storage: "in-memory"`.
+- `POST /postcodes`: accepts an array of records with a four-digit postcode and a non-empty name list; upserts records in the current process memory and returns the full stored collection.
 - `GET /:state`: returns records for ACT, NSW, NT, QLD, SA, TAS, VIC, or WA, sorted by postcode.
 - `GET /:first/:second`: returns deduplicated and sorted suburb names within the postcode range and the count of characters excluding spaces.
 
@@ -61,4 +54,4 @@ The range response retains the original field names: `suburb names:` and `total 
 npm test
 ```
 
-Tests use an in-memory libSQL database and do not require a hosted Turso account.
+Tests use isolated in-memory repository instances and do not require an external database.
