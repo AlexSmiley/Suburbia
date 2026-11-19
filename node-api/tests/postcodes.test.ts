@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import request from "supertest";
 import { createApp } from "../src/app";
+import { loadStateData } from "../src/state-data";
 import type { StateData } from "../src/repositories/postcodes.repository";
 
 const fixtures: StateData = {
@@ -12,6 +13,15 @@ const fixtures: StateData = {
 };
 
 describe("Suburbia Node API with in-memory storage", () => {
+  it("loads all eight bundled state datasets without an external database", () => {
+    const data = loadStateData();
+    expect(Object.keys(data).sort()).toEqual(["ACT", "NSW", "NT", "QLD", "SA", "TAS", "VIC", "WA"]);
+    for (const records of Object.values(data)) {
+      expect(records.length).toBeGreaterThan(0);
+      expect(records.every((record) => /^\\d{4}$/.test(record.postcode))).toBe(true);
+    }
+  });
+
   const setup = () => createApp(fixtures);
 
   it("loads bundled state data and returns it by state", async () => {
