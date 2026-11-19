@@ -1,14 +1,22 @@
-import Database from "better-sqlite3";
+import type { Client } from "@libsql/client";
 import type { PostcodeRecord, RangeResult } from "../models/postcode";
 
 export type StateData = Record<string, PostcodeRecord[]>;
 
+const INSERT_CHUNK_SIZE = 400;
+
 export class PostcodesRepository {
-  constructor(
-    private readonly db: Database.Database,
-    stateData: StateData
-  ) {
-    this.db.exec(`
+  private initialization?: Promise<void>;
+
+  constructor(private readonly db: Client) {}
+
+  initialize(stateData: StateData): Promise<void> {
+    this.initialization ??= this.initializeOnce(stateData);
+    return this.initialization;
+  }
+
+  private async initializeOnce(stateData: StateData): Promise<void> {
+    await this.db.executeMultiple(`
       CREATE TABLE IF NOT EXISTS postcodes (
         postcode TEXT PRIMARY KEY,
         names_json TEXT NOT NULL
@@ -21,70 +29,97 @@ export class PostcodesRepository {
       );
     `);
 
-    const count = (this.db.prepare("SELECT COUNT(*) AS count FROM postcodes").get() as { count: number }).count;
-    if (count === 0) this.seed(stateData);
-  }
+    const result = await this.db.execute("SELECT COUNT(*) AS count FROM postcodes");
+    const count = Number(result.rows[0]?.count ?? 0);
+    if (count > 0) return;
 
-  private seed(stateData: StateData): void {
-    const insertPostcode = this.db.prepare(
-      "INSERT INTO postcodes (postcode, names_json) VALUES (?, ?) ON CONFLICT(postcode) DO UPDATE SET names_json = excluded.names_json"
-    );
-    const insertMembership = this.db.prepare(
-      "INSERT OR IGNORE INTO state_postcodes (state, postcode) VALUES (?, ?)"
-    );
-    const seedTransaction = this.db.transaction((data: StateData) => {
-      for (const [state, records] of Object.entries(data)) {
-        for (const record of records) {
-          insertPostcode.run(record.postcode, JSON.stringify(record.name));
-          insertMembership.run(state, record.postcode);
-        }
+    const recordsByPostcode = new Map<string, PostcodeRecord>();
+    const memberships: Array<{ state: string; postcode: string }> = [];
+    for (const [state, records] of Object.entries(stateData)) {
+      for (const record of records) {
+        recordsByPostcode.set(record.postcode, record);
+        memberships.push({ state, postcode: record.postcode });
       }
-    });
-    seedTransaction(stateData);
+    }
+
+    const records = [...recordsByPostcode.values()];
+    const statements: Array<{ sql: string; args: Array<string | number> }> = [];
+
+    for (let offset = 0; offset < records.length; offset += INSERT_CHUNK_SIZE) {
+      const chunk = records.slice(offset, offset + INSERT_CHUNK_SIZE);
+      const values = chunk.map(() => "(?, ?)").join(", ");
+      statements.push({
+        sql: `INSERT INTO postcodes (postcode, names_json) VALUES ${values}
+          ON CONFLICT(postcode) DO UPDATE SET names_json = excluded.names_json`,
+        args: chunk.flatMap((record) => [record.postcode, JSON.stringify(record.name)])
+      });
+    }
+
+    for (let offset = 0; offset < memberships.length; offset += INSERT_CHUNK_SIZE) {
+      const chunk = memberships.slice(offset, offset + INSERT_CHUNK_SIZE);
+      const values = chunk.map(() => "(?, ?)").join(", ");
+      statements.push({
+        sql: `INSERT OR IGNORE INTO state_postcodes (state, postcode) VALUES ${values}`,
+        args: chunk.flatMap((membership) => [membership.state, membership.postcode])
+      });
+    }
+
+    if (statements.length > 0) await this.db.batch(statements, "write");
   }
 
-  saveAll(records: PostcodeRecord[]): PostcodeRecord[] {
-    const upsert = this.db.prepare(
-      "INSERT INTO postcodes (postcode, names_json) VALUES (?, ?) ON CONFLICT(postcode) DO UPDATE SET names_json = excluded.names_json"
-    );
-    const transaction = this.db.transaction((items: PostcodeRecord[]) => {
-      for (const item of items) upsert.run(item.postcode, JSON.stringify(item.name));
-    });
-    transaction(records);
+  async saveAll(records: PostcodeRecord[]): Promise<PostcodeRecord[]> {
+    const statements: Array<{ sql: string; args: Array<string | number> }> = [];
+    for (let offset = 0; offset < records.length; offset += INSERT_CHUNK_SIZE) {
+      const chunk = records.slice(offset, offset + INSERT_CHUNK_SIZE);
+      const values = chunk.map(() => "(?, ?)").join(", ");
+      statements.push({
+        sql: `INSERT INTO postcodes (postcode, names_json) VALUES ${values}
+          ON CONFLICT(postcode) DO UPDATE SET names_json = excluded.names_json`,
+        args: chunk.flatMap((record) => [record.postcode, JSON.stringify(record.name)])
+      });
+    }
+    if (statements.length > 0) await this.db.batch(statements, "write");
     return this.getAll();
   }
 
-  getAll(): PostcodeRecord[] {
-    return this.db.prepare(
+  async getAll(): Promise<PostcodeRecord[]> {
+    const result = await this.db.execute(
       "SELECT postcode, names_json FROM postcodes ORDER BY postcode"
-    ).all().map((row: any) => ({
-      postcode: row.postcode,
-      name: JSON.parse(row.names_json) as string[]
+    );
+    return result.rows.map((row) => ({
+      postcode: String(row.postcode),
+      name: JSON.parse(String(row.names_json)) as string[]
     }));
   }
 
-  getByState(state: string): PostcodeRecord[] {
-    return this.db.prepare(`
-      SELECT p.postcode, p.names_json
-      FROM postcodes p
-      INNER JOIN state_postcodes s ON s.postcode = p.postcode
-      WHERE s.state = ?
-      ORDER BY p.postcode
-    `).all(state).map((row: any) => ({
-      postcode: row.postcode,
-      name: JSON.parse(row.names_json) as string[]
+  async getByState(state: string): Promise<PostcodeRecord[]> {
+    const result = await this.db.execute({
+      sql: `SELECT p.postcode, p.names_json
+        FROM postcodes p
+        INNER JOIN state_postcodes s ON s.postcode = p.postcode
+        WHERE s.state = ?
+        ORDER BY p.postcode`,
+      args: [state]
+    });
+    return result.rows.map((row) => ({
+      postcode: String(row.postcode),
+      name: JSON.parse(String(row.names_json)) as string[]
     }));
   }
 
-  getByRange(from: number, to: number): RangeResult {
+  async getByRange(from: number, to: number): Promise<RangeResult> {
     const start = Math.max(from, 0);
     const end = Math.min(to, 9999);
-    const suburbs = start <= end
-      ? this.db.prepare(
-          "SELECT names_json FROM postcodes WHERE CAST(postcode AS INTEGER) BETWEEN ? AND ?"
-        ).all(start, end).flatMap((row: any) => JSON.parse(row.names_json) as string[])
-      : [];
+    const result = start <= end
+      ? await this.db.execute({
+          sql: "SELECT names_json FROM postcodes WHERE CAST(postcode AS INTEGER) BETWEEN ? AND ?",
+          args: [start, end]
+        })
+      : { rows: [] };
 
+    const suburbs = result.rows.flatMap((row) =>
+      JSON.parse(String(row.names_json)) as string[]
+    );
     const uniqueSorted = [...new Set(suburbs)].sort();
     return {
       "suburb names:": uniqueSorted,

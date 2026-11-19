@@ -2,20 +2,15 @@ import { createApp } from "./app";
 import { openDatabase } from "./database";
 import { loadStateData } from "./state-data";
 
-const port = Number(process.env.PORT ?? 3001);
-const database = openDatabase();
-const app = createApp(database, loadStateData());
+const app = createApp(openDatabase(), loadStateData());
 
-const server = app.listen(port, () => {
-  console.log(`Suburbia Node.js API listening on http://localhost:${port}`);
-});
+export default app;
 
-function shutdown() {
-  server.close(() => {
-    database.close();
-    process.exit(0);
+// Keep the same entrypoint usable for local development while allowing Vercel
+// to import the Express application without opening a long-lived listener.
+if (require.main === module) {
+  const port = Number(process.env.PORT ?? 3001);
+  app.listen(port, () => {
+    console.log(`Suburbia Node.js API listening on http://localhost:${port}`);
   });
 }
-
-process.on("SIGINT", shutdown);
-process.on("SIGTERM", shutdown);
