@@ -10,7 +10,7 @@ Suburbia is an Australian postcode and suburb API with multiple backend implemen
 | node-api/ | TypeScript, Express, SQLite API | http://localhost:3001 |
 | frontend/ | React + TypeScript + Vite | http://localhost:5173 |
 
-The Java and Node.js backends are separate implementations. Neither replaces the other.
+The Java and Node.js backends are independent implementations. Both remain in the repository.
 
 ## Run the Node.js API
 
@@ -18,7 +18,7 @@ The Java and Node.js backends are separate implementations. Neither replaces the
     npm install
     npm run dev
 
-See node-api/README.md for configuration, endpoints, and tests.
+The Node.js API seeds its local SQLite database from the eight Australian state and territory datasets bundled in node-api/data/states/. See node-api/README.md for configuration, endpoints, and tests.
 
 ## Run the React frontend
 
@@ -26,7 +26,7 @@ See node-api/README.md for configuration, endpoints, and tests.
     npm install
     npm run dev
 
-The existing Vite proxy defaults to the Spring Boot API on port 8080. To use the Node.js implementation, change its proxy target in frontend/vite.config.ts to http://localhost:3001.
+By default, Vite proxies API calls to the Spring Boot API on port 8080. To use the Node.js API, start Vite with VITE_API_PROXY_TARGET=http://localhost:3001.
 
 ## Run the original Java API
 
