@@ -42,3 +42,5 @@ Use the Maven wrapper or Maven installation from the repository root:
     mvn spring-boot:run
 
 The Spring Boot backend and full-stack Node.js application can be run independently.
+
+Link: https://suburbia-murex.vercel.app/
