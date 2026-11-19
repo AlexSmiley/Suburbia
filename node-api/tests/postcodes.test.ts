@@ -1,6 +1,5 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import request from "supertest";
-import { createClient, type Client } from "@libsql/client";
 import { createApp } from "../src/app";
 import type { StateData } from "../src/repositories/postcodes.repository";
 
@@ -12,24 +11,17 @@ const fixtures: StateData = {
   VIC: [{ postcode: "3000", name: ["Melbourne"] }]
 };
 
-describe("Suburbia Node API", () => {
-  let db: Client;
+describe("Suburbia Node API with in-memory storage", () => {
+  const setup = () => createApp(fixtures);
 
-  afterEach(() => db?.close());
-
-  const setup = () => {
-    db = createClient({ url: ":memory:" });
-    return createApp(db, fixtures);
-  };
-
-  it("seeds the bundled state data and returns it by state", async () => {
+  it("loads bundled state data and returns it by state", async () => {
     const app = setup();
     const response = await request(app).get("/NSW");
     expect(response.status).toBe(200);
     expect(response.body.map((item: { postcode: string }) => item.postcode)).toEqual(["2000", "2001"]);
   });
 
-  it("upserts records and returns the full stored collection", async () => {
+  it("upserts records in memory and returns the full stored collection", async () => {
     const app = setup();
     const response = await request(app).post("/postcodes").send([
       { postcode: "2000", name: ["Sydney CBD"] },
@@ -68,5 +60,11 @@ describe("Suburbia Node API", () => {
       { postcode: "20", name: ["Sydney"] }
     ]);
     expect(response.status).toBe(400);
+  });
+
+  it("reports that the API uses in-memory storage", async () => {
+    const response = await request(setup()).get("/health");
+    expect(response.status).toBe(200);
+    expect(response.body.storage).toBe("in-memory");
   });
 });
