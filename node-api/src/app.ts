@@ -1,17 +1,16 @@
 import express, { type ErrorRequestHandler } from "express";
-import type { Client } from "@libsql/client";
 import { PostcodesRepository, type StateData } from "./repositories/postcodes.repository";
 import { PostcodesService } from "./services/postcodes.service";
 import { createPostcodesRouter } from "./controllers/postcodes.controller";
 
-export function createApp(database: Client, stateData: StateData) {
+export function createApp(stateData: StateData) {
   const app = express();
-  const repository = new PostcodesRepository(database);
+  const repository = new PostcodesRepository();
   const service = new PostcodesService(repository);
 
   app.use(express.json({ limit: "1mb" }));
 
-  // Initialize schema and seed data once per warm function instance before serving API requests.
+  // Load the bundled postcode dataset into this process's memory before API requests.
   app.use(async (_req, _res, next) => {
     try {
       await repository.initialize(stateData);
@@ -22,7 +21,7 @@ export function createApp(database: Client, stateData: StateData) {
   });
 
   app.get("/health", (_req, res) => {
-    res.json({ status: "ok", service: "suburbia-node-api" });
+    res.json({ status: "ok", service: "suburbia-node-api", storage: "in-memory" });
   });
 
   app.use("/", createPostcodesRouter(service));
